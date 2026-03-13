@@ -240,4 +240,68 @@ export const LESSONS = [
       },
     ],
   },
+
+  {
+    id: 'orbitals',
+    icon: '🔮',
+    title: 'Orbitali Atomici',
+    subtitle: 'Funcții de undă · s, p, d',
+    color: '#f472b6',
+    colorDim: 'rgba(244,114,182,0.12)',
+
+    theory: [
+      {
+        type: 'heading',
+        text: 'Ce sunt orbitalii atomici?',
+      },
+      {
+        type: 'text',
+        text: 'TODO: Adaugă explicații despre orbitali — zone din jurul nucleului unde probabilitatea de a găsi electronul este semnificativă.',
+      },
+      {
+        type: 'heading',
+        text: 'Numerele cuantice',
+      },
+      {
+        type: 'list',
+        items: [
+          'n — numărul cuantic principal (nivelul de energie)',
+          'l — numărul cuantic orbital (forma: 0=s, 1=p, 2=d)',
+          'm — numărul cuantic magnetic (orientarea)',
+        ],
+      },
+      {
+        type: 'formula',
+        text: 'ψₙₗₘ(r, θ, φ)',
+        label: 'Funcția de undă hidrogenoidă',
+      },
+      {
+        type: 'formula',
+        text: 'P(r) = |ψ|² · 4πr²',
+        label: 'Densitatea de probabilitate radială',
+      },
+      {
+        type: 'text',
+        text: 'TODO: Completează cu descrierea formelor orbitalilor s, p, d și regulile de umplere.',
+      },
+    ],
+
+    problems: [
+      {
+        id: 'o1',
+        text: 'TODO: Enunț problemă 1 — ex: Ce valori poate lua m pentru l=2?',
+        answer: 'TODO: Răspuns + rezolvare.',
+      },
+      {
+        id: 'o2',
+        text: 'TODO: Enunț problemă 2.',
+        answer: 'TODO: Răspuns.',
+      },
+      {
+        id: 'o3',
+        text: 'TODO: Enunț problemă 3.',
+        answer: 'TODO: Răspuns.',
+      },
+    ],
+  },
 ]
