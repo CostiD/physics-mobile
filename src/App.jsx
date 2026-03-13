@@ -4,12 +4,14 @@ import AtomicSim from './simulations/AtomicSim'
 import QuantumSim from './simulations/QuantumSim'
 import MRU from './simulations/MRU'
 import ThermalAgitation from './simulations/ThermalAgitation'
+import Orbitals from './simulations/Orbitals'
 
 const SIM_MAP = {
   atomic:  AtomicSim,
   quantum: QuantumSim,
   mru:     MRU,
   thermal: ThermalAgitation,
+  orbitals: Orbitals,
 }
 
 // ─── Theme ────────────────────────────────────────────────────
