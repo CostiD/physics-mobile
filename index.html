@@ -6,12 +6,64 @@
     <meta name="theme-color" content="#0F1117" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-    <title>Fizică — Simulări</title>
+    <title>Fizică — Simulări Interactive</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Spectral:ital,wght@0,400;0,600;0,700;0,800;1,400;1,600&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;600&display=swap" rel="stylesheet" />
     <style>
       *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-      html { background: #0F1117; }
-      body { background: #0F1117; overscroll-behavior-y: contain; -webkit-tap-highlight-color: transparent; }
+
+      :root {
+        --bg:          #0B0D16;
+        --surface:     #10121E;
+        --surface-up:  #171929;
+        --border:      rgba(255,255,255,0.07);
+        --border-mid:  rgba(255,255,255,0.12);
+        --text:        #E2E4EE;
+        --text-body:   #B8BCCC;
+        --dim:         #5A6070;
+        --dimmer:      #2E3245;
+        --grid-major:  rgba(120,150,220,0.045);
+        --grid-minor:  rgba(120,150,220,0.02);
+        --font-ui:     'IBM Plex Sans', system-ui, sans-serif;
+        --font-body:   'Spectral', Georgia, serif;
+        --font-mono:   'IBM Plex Mono', 'Courier New', monospace;
+      }
+
+      html { background: var(--bg); }
+
+      body {
+        background: var(--bg);
+        /* Millimetre-paper grid — two scales */
+        background-image:
+          linear-gradient(var(--grid-major) 1px, transparent 1px),
+          linear-gradient(90deg, var(--grid-major) 1px, transparent 1px),
+          linear-gradient(var(--grid-minor) 1px, transparent 1px),
+          linear-gradient(90deg, var(--grid-minor) 1px, transparent 1px);
+        background-size:
+          40px 40px,
+          40px 40px,
+          8px 8px,
+          8px 8px;
+        background-attachment: fixed;
+        overscroll-behavior-y: contain;
+        -webkit-tap-highlight-color: transparent;
+      }
+
       #root { min-height: 100dvh; }
+
+      /* Smooth fade-in for home cards */
+      @keyframes fadeUp {
+        from { opacity: 0; transform: translateY(10px); }
+        to   { opacity: 1; transform: translateY(0); }
+      }
+      .sim-card-animate {
+        animation: fadeUp 0.35s ease both;
+      }
+
+      @keyframes spin {
+        to { transform: rotate(360deg); }
+      }
     </style>
   </head>
   <body>
