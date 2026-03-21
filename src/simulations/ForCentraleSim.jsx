@@ -195,22 +195,33 @@ function E1() {
   useEffect(()=>{sRef.current.showAreas=showAreas;},[showAreas]);
   useEffect(()=>{sRef.current.paused=paused;},[paused]);
 
-  function getPos(th,m){const{a,b}=ORBITS[m];const c=Math.sqrt(Math.max(0,a*a-b*b));return{x:a*Math.cos(th)+c,y:b*Math.sin(th)};}
-  function getVel(th,m){const{a,b}=ORBITS[m];const c=Math.sqrt(Math.max(0,a*a-b*b));const pos=getPos(th,m);const r=Math.sqrt(pos.x*pos.x+pos.y*pos.y);const e=c/a;const L_sq=a*(1-e*e);const dt=Math.sqrt(Math.max(0,L_sq))/(r*r);return{vx:-a*Math.sin(th)*dt,vy:b*Math.cos(th)*dt,dtheta:dt,r_phys:r};}
+  // True-anomaly: r(φ)=p/(1+e cosφ), v = ṙr̂ + rφ̇θ̂, GM=1
+  function getState1(phi,m){
+    const{a,b}=ORBITS[m];
+    const e=Math.sqrt(Math.max(0,1-b*b/(a*a)));
+    const p=b*b/a;
+    const L=Math.sqrt(p);
+    const r=p/(1+e*Math.cos(phi));
+    const dtheta=L/(r*r);
+    const vr=L*e*Math.sin(phi)/p;
+    const vt=L/r;
+    const cp=Math.cos(phi),sp=Math.sin(phi);
+    return{x:r*cp,y:r*sp,vx:vr*cp-vt*sp,vy:vr*sp+vt*cp,dtheta,r_phys:r};
+  }
   useEffect(()=>{
     const cv=cvRef.current;if(!cv)return;
-    const W=cv.width,H=cv.height,O={x:W*0.42,y:H/2};
+    const W=cv.width,H=cv.height,O={x:W*0.46,y:H/2};
     const ctx=cv.getContext("2d");
     const s=sRef.current;
     function draw(){
       ctx.clearRect(0,0,W,H);ctx.fillStyle=C.bg;ctx.fillRect(0,0,W,H);
       const{a,b}=ORBITS[s.mode];const c=Math.sqrt(Math.max(0,a*a-b*b));
-      ctx.save();ctx.translate(O.x+c,O.y);ctx.beginPath();ctx.ellipse(0,0,a,b,0,0,Math.PI*2);ctx.strokeStyle="rgba(60,60,55,0.11)";ctx.lineWidth=1;ctx.setLineDash([4,6]);ctx.stroke();ctx.restore();
+      // focus at O, center at O.x-c
+      ctx.save();ctx.translate(O.x-c,O.y);ctx.beginPath();ctx.ellipse(0,0,a,b,0,0,Math.PI*2);ctx.strokeStyle="rgba(60,60,55,0.11)";ctx.lineWidth=1;ctx.setLineDash([4,6]);ctx.stroke();ctx.restore();
       ctx.save();ctx.beginPath();ctx.arc(O.x,O.y,4,0,Math.PI*2);ctx.fillStyle="#666";ctx.fill();ctx.font="11px sans-serif";ctx.fillStyle="#777";ctx.fillText("O",O.x+7,O.y-6);ctx.restore();
-      const pos=getPos(s.angle,s.mode);const vel=getVel(s.angle,s.mode);
-      const px=O.x+pos.x,py=O.y-pos.y;
-      const r=Math.sqrt(pos.x*pos.x+pos.y*pos.y);
-      const vmag=Math.sqrt(vel.vx*vel.vx+vel.vy*vel.vy);
+      const st=getState1(s.angle,s.mode);
+      const px=O.x+st.x,py=O.y-st.y;
+      const vmag=Math.sqrt(st.vx*st.vx+st.vy*st.vy);
       if(s.showAreas){
         for(const area of s.areas){ctx.save();ctx.beginPath();ctx.moveTo(O.x,O.y);for(const p of area.pts)ctx.lineTo(p.x,p.y);ctx.closePath();ctx.fillStyle=area.color;ctx.fill();ctx.strokeStyle="rgba(127,119,221,0.35)";ctx.lineWidth=0.5;ctx.stroke();ctx.restore();}
         if(s.frame%2===0)s.wedge.push({x:px,y:py});
@@ -218,15 +229,15 @@ function E1() {
         if(s.areaTimer>=AREA_INT){s.areas.push({pts:[...s.wedge],color:AREA_COLS[s.colorIdx%3]});s.colorIdx++;if(s.areas.length>3)s.areas.shift();s.wedge=[];s.areaTimer=0;}
       }
       arrow(ctx,O.x,O.y,px,py,C.blue,"r",1);
-      const fux=-pos.x/r,fuy=pos.y/r;
-      arrow(ctx,px,py,px+fux*55,py+fuy*55,C.red,"F",-1);
-      const vux=vmag>0?vel.vx/vmag:0,vuy=vmag>0?-vel.vy/vmag:0;
+      arrow(ctx,px,py,px-st.x/st.r_phys*55,py+st.y/st.r_phys*55,C.red,"F",-1);
+      const vux=vmag>0?st.vx/vmag:0,vuy=vmag>0?-st.vy/vmag:0;
       arrow(ctx,px,py,px+vux*50,py+vuy*50,C.amber,"v",1,2.5);
       ctx.save();ctx.beginPath();ctx.arc(px,py,6,0,Math.PI*2);ctx.fillStyle=C.red;ctx.fill();ctx.restore();
       ctx.save();ctx.font="11px sans-serif";ctx.fillStyle=C.green;ctx.fillText("τ = r × F = 0",10,H-10);ctx.restore();
-      const L=Math.abs(pos.x*vel.vy-pos.y*vel.vx);
-      vals.current={tau:"0.00",L:L.toFixed(3),dA:(L/2).toFixed(3),r:r.toFixed(1),v:vmag.toFixed(3)};
-      if(!s.paused){s.angle+=vel.dtheta*3.5;if(s.angle>Math.PI*2)s.angle-=Math.PI*2;s.frame++;rafRef.current=requestAnimationFrame(draw);fu(n=>n+1);}
+      // L = r²φ̇ = const (exact by construction with true anomaly)
+      const L=st.r_phys*st.r_phys*st.dtheta;
+      vals.current={tau:"0.00",L:L.toFixed(3),dA:(L/2).toFixed(3),r:st.r_phys.toFixed(1),v:vmag.toFixed(3)};
+      if(!s.paused){s.angle+=st.dtheta*3.5;if(s.angle>Math.PI*2)s.angle-=Math.PI*2;s.frame++;rafRef.current=requestAnimationFrame(draw);fu(n=>n+1);}
     }
     rafRef.current=requestAnimationFrame(draw);
     return()=>cancelAnimationFrame(rafRef.current);
@@ -273,10 +284,20 @@ function E2() {
   useEffect(()=>{sRef.current.showDecomp=showDecomp;},[showDecomp]);
   useEffect(()=>{sRef.current.paused=paused;},[paused]);
 
-  function getPos(th,m){const{a,b}=ORBITS[m];const c=Math.sqrt(Math.max(0,a*a-b*b));return{x:a*Math.cos(th)+c,y:b*Math.sin(th)};}
-  function getVel(th,m){const{a,b}=ORBITS[m];const pos=getPos(th,m);const r=Math.sqrt(pos.x*pos.x+pos.y*pos.y);const c=Math.sqrt(Math.max(0,a*a-b*b));const e=c/a;const L_sq=a*(1-e*e);const dt=Math.sqrt(Math.max(0,L_sq))/(r*r);return{vx:-a*Math.sin(th)*dt,vy:b*Math.cos(th)*dt,dtheta:dt,r_phys:r};}
-  function getRdot(th,dt,m){const{a,b}=ORBITS[m];const pos=getPos(th,m);const r=Math.sqrt(pos.x*pos.x+pos.y*pos.y);return((-a*Math.sin(th)*pos.x+b*Math.cos(th)*pos.y)/r)*dt;}
-  function calibrate(m){let vmin=Infinity;for(let i=0;i<360;i++){const th=(i/360)*Math.PI*2;const v=getVel(th,m);const vm=Math.sqrt(v.vx*v.vx+v.vy*v.vy);if(vm<vmin)vmin=vm;}V_SCALE.current=35/vmin;}
+  // True-anomaly: exact Kepler, ṙ = Le sinφ/p, rφ̇ = L/r
+  function getState2(phi,m){
+    const{a,b}=ORBITS[m];
+    const e=Math.sqrt(Math.max(0,1-b*b/(a*a)));
+    const p=b*b/a;
+    const L=Math.sqrt(p);
+    const r=p/(1+e*Math.cos(phi));
+    const dtheta=L/(r*r);
+    const vr=L*e*Math.sin(phi)/p;
+    const vt=L/r;
+    const cp=Math.cos(phi),sp=Math.sin(phi);
+    return{x:r*cp,y:r*sp,vx:vr*cp-vt*sp,vy:vr*sp+vt*cp,vr,vt,dtheta,r_phys:r};
+  }
+  function calibrate(m){let vmin=Infinity;for(let i=0;i<360;i++){const phi=(i/360)*Math.PI*2;const st=getState2(phi,m);const vm=Math.sqrt(st.vx*st.vx+st.vy*st.vy);if(vm<vmin)vmin=vm;}V_SCALE.current=35/vmin;}
 
   useEffect(()=>{
     calibrate("ellipse");
@@ -286,13 +307,14 @@ function E2() {
     function draw(){
       ctx.clearRect(0,0,W,H);ctx.fillStyle=C.bg;ctx.fillRect(0,0,W,H);
       const{a,b}=ORBITS[s.mode];const c=Math.sqrt(Math.max(0,a*a-b*b));
-      ctx.save();ctx.translate(O.x+c,O.y);ctx.beginPath();ctx.ellipse(0,0,a,b,0,0,Math.PI*2);ctx.strokeStyle="rgba(60,60,55,0.11)";ctx.lineWidth=1;ctx.setLineDash([4,6]);ctx.stroke();ctx.restore();
+      // focus at O, center at O.x-c
+      ctx.save();ctx.translate(O.x-c,O.y);ctx.beginPath();ctx.ellipse(0,0,a,b,0,0,Math.PI*2);ctx.strokeStyle="rgba(60,60,55,0.11)";ctx.lineWidth=1;ctx.setLineDash([4,6]);ctx.stroke();ctx.restore();
       ctx.save();ctx.beginPath();ctx.arc(O.x,O.y,4,0,Math.PI*2);ctx.fillStyle="#666";ctx.fill();ctx.font="11px sans-serif";ctx.fillStyle="#777";ctx.fillText("O",O.x+7,O.y-6);ctx.restore();
-      const pos=getPos(s.angle,s.mode);const vel=getVel(s.angle,s.mode);
-      const{dtheta,r_phys}=vel;const rdot=getRdot(s.angle,dtheta,s.mode);
-      const px=O.x+pos.x,py=O.y-pos.y;
-      const rc_x=pos.x/r_phys,rc_y=-pos.y/r_phys;
-      const tc_x=-pos.y/r_phys,tc_y=-pos.x/r_phys;
+      const st=getState2(s.angle,s.mode);
+      const{dtheta,r_phys,vr:rdot,vt:vth_phys}=st;
+      const px=O.x+st.x,py=O.y-st.y;
+      const rc_x=st.x/r_phys,rc_y=-st.y/r_phys;
+      const tc_x=-st.y/r_phys,tc_y=-st.x/r_phys;
       const UL=48;
       arrow(ctx,px,py,px+rc_x*UL,py+rc_y*UL,C.blue,"r̂",1,2);
       arrow(ctx,px,py,px+tc_x*UL,py+tc_y*UL,C.purple,"θ̂",-1,2);
@@ -363,7 +385,7 @@ function E3() {
   const PRESETS=["circ","el1","el2","par","hyp"];
   function Emin(L){return L*L/(2*L*L*L*L)-1/(L*L);}// L²/2r₀²-1/r₀, r₀=L²
   function Uef(r,L){return L*L/(2*r*r)-1/r;}
-  function getE(pr,L){const em=Emin(L);if(pr==="circ")return em;if(pr==="el1")return em*0.5;if(pr==="el2")return em*0.1;if(pr==="par")return 0;return Math.abs(em)*0.4;}
+  function getE(pr,L){const em=Emin(L);if(pr==="circ")return em;if(pr==="el1")return em*0.5;if(pr==="el2")return em*0.3;if(pr==="par")return 0;return Math.abs(em)*0.4;}
   function getBounds(E,L){const pts=[];let prev=Uef(0.26,L)-E;for(let i=1;i<=2000;i++){const r=0.26+(8.5-0.26)*i/2000;const cur=Uef(r,L)-E;if(prev*cur<0)pts.push(r-(8.5-0.26)/2000*cur/(cur-prev));prev=cur;}return pts;}
   function classify(E,L){const em=Emin(L);if(Math.abs(E-em)<Math.abs(em)*0.03+0.001)return{type:"cerc",color:C.green};if(E<-0.001)return{type:"elipsă",color:C.green};if(Math.abs(E)<0.006)return{type:"parabolă",color:C.amber};return{type:"hiperbolă",color:C.red};}
   function orbitScale(E,L,bounds,pH){const info=classify(E,L);let mR;if(info.type==="cerc")mR=L*L;else if(info.type==="elipsă"&&bounds.length>=2)mR=bounds[bounds.length-1];else mR=6;return Math.min(pH*0.38/Math.max(mR,0.1),40);}
@@ -429,7 +451,7 @@ function E3() {
     return()=>cancelAnimationFrame(rafRef.current);
   },[]);
 
-  const PRESET_DEFS=[{id:"circ",label:"Cerc",sub:"E_min"},{id:"el1",label:"Elipsă mică",sub:"0.5 E_min"},{id:"el2",label:"Elipsă mare",sub:"0.1 E_min"},{id:"par",label:"Parabolă",sub:"E=0"},{id:"hyp",label:"Hiperbolă",sub:"E>0"}];
+  const PRESET_DEFS=[{id:"circ",label:"Cerc",sub:"E_min"},{id:"el1",label:"Elipsă",sub:"0.5 E_min"},{id:"el2",label:"Elipsă mare",sub:"0.3 E_min"},{id:"par",label:"Parabolă",sub:"E=0"},{id:"hyp",label:"Hiperbolă",sub:"E>0"}];
   const COLS={circ:C.green,el1:C.green,el2:C.green,par:C.amber,hyp:C.red};
 
   return(
