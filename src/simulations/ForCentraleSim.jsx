@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef } from "react";
 
 // ── palette ──
 const C = {
@@ -18,33 +18,26 @@ const TABS = [
 ];
 
 // ─────────────────────────────────────────────────────
-//  Shared canvas hook
+//  Shared helpers
 // ─────────────────────────────────────────────────────
-function useCanvas(drawFn, deps) {
-  const ref = useRef(null);
-  const rafRef = useRef(null);
-  const pausedRef = useRef(false);
-
-  const loop = useCallback(() => {
-    if (!pausedRef.current) {
-      const cv = ref.current;
-      if (cv) {
-        const ctx = cv.getContext("2d");
-        drawFn(ctx, cv.width, cv.height);
-      }
-      rafRef.current = requestAnimationFrame(loop);
-    }
-  }, [drawFn]);
-
-  useEffect(() => {
-    rafRef.current = requestAnimationFrame(loop);
-    return () => cancelAnimationFrame(rafRef.current);
-  }, [loop]);
-
-  const pause  = () => { pausedRef.current = true; };
-  const resume = () => { pausedRef.current = false; rafRef.current = requestAnimationFrame(loop); };
-  const toggle = () => pausedRef.current ? resume() : pause();
-  return { ref, toggle, isPaused: () => pausedRef.current };
+function arrow(ctx, x1, y1, x2, y2, col, lbl, lside, lw = 2) {
+  const dx = x2-x1, dy = y2-y1, len = Math.sqrt(dx*dx+dy*dy);
+  if (len < 3) return;
+  const ux = dx/len, uy = dy/len, hw = 8, hh = 4;
+  ctx.save();
+  ctx.strokeStyle = col; ctx.fillStyle = col; ctx.lineWidth = lw;
+  ctx.beginPath(); ctx.moveTo(x1,y1); ctx.lineTo(x2,y2); ctx.stroke();
+  ctx.beginPath();
+  ctx.moveTo(x2, y2);
+  ctx.lineTo(x2-hw*ux+hh*uy, y2-hw*uy-hh*ux);
+  ctx.lineTo(x2-hw*ux-hh*uy, y2-hw*uy+hh*ux);
+  ctx.closePath(); ctx.fill();
+  if (lbl) {
+    ctx.font = "500 12px sans-serif";
+    const nx = -uy, ny = ux, off = lside === -1 ? -14 : 14;
+    ctx.fillText(lbl, (x1+x2)/2 + nx*off - 5, (y1+y2)/2 + ny*off + 4);
+  }
+  ctx.restore();
 }
 
 function ValBox({ label, value, color }) {
@@ -93,20 +86,6 @@ function E0() {
   useEffect(() => { stateRef.current.speed = speed; }, [speed]);
   useEffect(() => { stateRef.current.paused = paused; }, [paused]);
 
-  function arrow(ctx, x1, y1, x2, y2, col, lbl, lside, lw = 2) {
-    const dx = x2-x1, dy = y2-y1, len = Math.sqrt(dx*dx+dy*dy);
-    if (len < 3) return;
-    ctx.save(); ctx.strokeStyle = col; ctx.fillStyle = col; ctx.lineWidth = lw;
-    ctx.beginPath(); ctx.moveTo(x1,y1); ctx.lineTo(x2,y2); ctx.stroke();
-    const ux=dx/len,uy=dy/len,hw=8,hh=4;
-    ctx.beginPath(); ctx.moveTo(x2,y2);
-    ctx.lineTo(x2-hw*ux+hh*uy,y2-hw*uy-hh*ux);
-    ctx.lineTo(x2-hw*ux-hh*uy,y2-hw*uy+hh*ux);
-    ctx.closePath(); ctx.fill();
-    if (lbl) { ctx.font="500 12px sans-serif"; ctx.fillStyle=col; const nx=-uy,ny=ux,off=lside===-1?-14:14; ctx.fillText(lbl,(x1+x2)/2+nx*off-5,(y1+y2)/2+ny*off+4); }
-    ctx.restore();
-  }
-
   useEffect(() => {
     const cv = cvRef.current; if (!cv) return;
     const W = cv.width, H = cv.height;
@@ -116,7 +95,7 @@ function E0() {
 
     function draw() {
       ctx.clearRect(0,0,W,H);
-      ctx.fillStyle = "#f8f7f3"; ctx.fillRect(0,0,W,H);
+      ctx.fillStyle = C.bg; ctx.fillRect(0,0,W,H);
       const sp = s.speed;
       let rx, ry, vx, vy;
       if (s.mode === "linear") {
@@ -140,7 +119,7 @@ function E0() {
       ctx.font="12px sans-serif"; ctx.fillStyle="#888"; ctx.fillText("O",O.x+8,O.y-6); ctx.restore();
       arrow(ctx,O.x,O.y,O.x+rx,O.y-ry,C.blue,"r",1);
       arrow(ctx,px,py,px+vx*0.55,py-vy*0.55,C.red,"p",-1);
-      const Lz_phys=-(rx*vy-ry*vx);
+      const Lz_phys=rx*vy-ry*vx;
       const Lmag=Math.abs(rx*vy-ry*vx);
       const Llen=Math.min(Lmag*0.012,110)+20;
       const lx=O.x+rx*0.45, ly=O.y-ry*0.45;
@@ -218,15 +197,13 @@ function E1() {
 
   function getPos(th,m){const{a,b}=ORBITS[m];const c=Math.sqrt(Math.max(0,a*a-b*b));return{x:a*Math.cos(th)+c,y:b*Math.sin(th)};}
   function getVel(th,m){const{a,b}=ORBITS[m];const c=Math.sqrt(Math.max(0,a*a-b*b));const pos=getPos(th,m);const r=Math.sqrt(pos.x*pos.x+pos.y*pos.y);const e=c/a;const L_sq=a*(1-e*e);const dt=Math.sqrt(Math.max(0,L_sq))/(r*r);return{vx:-a*Math.sin(th)*dt,vy:b*Math.cos(th)*dt,dtheta:dt,r_phys:r};}
-  function arrow(ctx,x1,y1,x2,y2,col,lbl,lside,lw=2){const dx=x2-x1,dy=y2-y1,len=Math.sqrt(dx*dx+dy*dy);if(len<2)return;ctx.save();ctx.strokeStyle=col;ctx.fillStyle=col;ctx.lineWidth=lw;ctx.beginPath();ctx.moveTo(x1,y1);ctx.lineTo(x2,y2);ctx.stroke();const ux=dx/len,uy=dy/len,hw=7,hh=3.5;ctx.beginPath();ctx.moveTo(x2,y2);ctx.lineTo(x2-hw*ux+hh*uy,y2-hw*uy-hh*ux);ctx.lineTo(x2-hw*ux-hh*uy,y2-hw*uy+hh*ux);ctx.closePath();ctx.fill();if(lbl){ctx.font="500 11px sans-serif";ctx.fillStyle=col;const nx=-uy,ny=ux,off=lside===-1?-13:13;ctx.fillText(lbl,(x1+x2)/2+nx*off-4,(y1+y2)/2+ny*off+4);}ctx.restore();}
-
   useEffect(()=>{
     const cv=cvRef.current;if(!cv)return;
     const W=cv.width,H=cv.height,O={x:W*0.42,y:H/2};
     const ctx=cv.getContext("2d");
     const s=sRef.current;
     function draw(){
-      ctx.clearRect(0,0,W,H);ctx.fillStyle="#f8f7f3";ctx.fillRect(0,0,W,H);
+      ctx.clearRect(0,0,W,H);ctx.fillStyle=C.bg;ctx.fillRect(0,0,W,H);
       const{a,b}=ORBITS[s.mode];const c=Math.sqrt(Math.max(0,a*a-b*b));
       ctx.save();ctx.translate(O.x+c,O.y);ctx.beginPath();ctx.ellipse(0,0,a,b,0,0,Math.PI*2);ctx.strokeStyle="rgba(60,60,55,0.11)";ctx.lineWidth=1;ctx.setLineDash([4,6]);ctx.stroke();ctx.restore();
       ctx.save();ctx.beginPath();ctx.arc(O.x,O.y,4,0,Math.PI*2);ctx.fillStyle="#666";ctx.fill();ctx.font="11px sans-serif";ctx.fillStyle="#777";ctx.fillText("O",O.x+7,O.y-6);ctx.restore();
@@ -301,15 +278,13 @@ function E2() {
   function getRdot(th,dt,m){const{a,b}=ORBITS[m];const pos=getPos(th,m);const r=Math.sqrt(pos.x*pos.x+pos.y*pos.y);return((-a*Math.sin(th)*pos.x+b*Math.cos(th)*pos.y)/r)*dt;}
   function calibrate(m){let vmin=Infinity;for(let i=0;i<360;i++){const th=(i/360)*Math.PI*2;const v=getVel(th,m);const vm=Math.sqrt(v.vx*v.vx+v.vy*v.vy);if(vm<vmin)vmin=vm;}V_SCALE.current=35/vmin;}
 
-  function arrow(ctx,x1,y1,x2,y2,col,lbl,lside,lw=2){const dx=x2-x1,dy=y2-y1,len=Math.sqrt(dx*dx+dy*dy);if(len<3)return;ctx.save();ctx.strokeStyle=col;ctx.fillStyle=col;ctx.lineWidth=lw;ctx.beginPath();ctx.moveTo(x1,y1);ctx.lineTo(x2,y2);ctx.stroke();const ux=dx/len,uy=dy/len,hw=8,hh=4;ctx.beginPath();ctx.moveTo(x2,y2);ctx.lineTo(x2-hw*ux+hh*uy,y2-hw*uy-hh*ux);ctx.lineTo(x2-hw*ux-hh*uy,y2-hw*uy+hh*ux);ctx.closePath();ctx.fill();if(lbl){ctx.font="500 12px sans-serif";ctx.fillStyle=col;const nx=-uy,ny=ux,off=lside===-1?-14:14;ctx.fillText(lbl,(x1+x2)/2+nx*off-5,(y1+y2)/2+ny*off+4);}ctx.restore();}
-
   useEffect(()=>{
     calibrate("ellipse");
     const cv=cvRef.current;if(!cv)return;
     const W=cv.width,H=cv.height,O={x:W/2-15,y:H/2};
     const ctx=cv.getContext("2d");const s=sRef.current;
     function draw(){
-      ctx.clearRect(0,0,W,H);ctx.fillStyle="#f8f7f3";ctx.fillRect(0,0,W,H);
+      ctx.clearRect(0,0,W,H);ctx.fillStyle=C.bg;ctx.fillRect(0,0,W,H);
       const{a,b}=ORBITS[s.mode];const c=Math.sqrt(Math.max(0,a*a-b*b));
       ctx.save();ctx.translate(O.x+c,O.y);ctx.beginPath();ctx.ellipse(0,0,a,b,0,0,Math.PI*2);ctx.strokeStyle="rgba(60,60,55,0.11)";ctx.lineWidth=1;ctx.setLineDash([4,6]);ctx.stroke();ctx.restore();
       ctx.save();ctx.beginPath();ctx.arc(O.x,O.y,4,0,Math.PI*2);ctx.fillStyle="#666";ctx.fill();ctx.font="11px sans-serif";ctx.fillStyle="#777";ctx.fillText("O",O.x+7,O.y-6);ctx.restore();
@@ -408,7 +383,7 @@ function E3() {
 
     function draw(){
       const E=getE(s.preset,s.L);const Lv=s.L;
-      ctx.clearRect(0,0,W,H);ctx.fillStyle="#f8f7f3";ctx.fillRect(0,0,W,H);
+      ctx.clearRect(0,0,W,H);ctx.fillStyle=C.bg;ctx.fillRect(0,0,W,H);
       const zy=u2py(0);
       ctx.save();ctx.strokeStyle="rgba(60,60,55,0.18)";ctx.lineWidth=0.8;ctx.setLineDash([4,5]);ctx.beginPath();ctx.moveTo(GL,zy);ctx.lineTo(GR,zy);ctx.stroke();ctx.setLineDash([]);ctx.beginPath();ctx.moveTo(GL,GB);ctx.lineTo(GR,GB);ctx.stroke();ctx.restore();
       ctx.save();ctx.font="11px sans-serif";ctx.fillStyle="rgba(60,60,55,0.4)";ctx.fillText("r",GR+4,GB+4);ctx.fillText("U",GL-16,GT+8);ctx.fillText("0",GL-14,zy+4);
@@ -470,7 +445,7 @@ function E3() {
       </div>
       <div style={{display:"flex",alignItems:"center",gap:8,marginTop:8,flexWrap:"wrap"}}>
         <span style={{fontSize:12,color:"var(--color-text-secondary)"}}>L:</span>
-        <input type="range" min="1" max="4" step="0.5" value={L} onChange={e=>{setL(+e.target.value);sRef.current.L=+e.target.value;}} style={{flex:1,minWidth:80}}/>
+        <input type="range" min="1" max="2.8" step="0.1" value={L} onChange={e=>{setL(+e.target.value);sRef.current.L=+e.target.value;}} style={{flex:1,minWidth:80}}/>
         <ValBox label="L =" value={L.toFixed(1)}/>
       </div>
       <div style={{display:"flex",flexWrap:"wrap",gap:6,marginTop:6}}>
@@ -491,9 +466,9 @@ function E4() {
   const [preset,setPreset]=useState(1);
   const sRef=useRef({e:0.6,p:1.2,animT:0});
   const rafRef=useRef(null);const[,fu]=useState(0);
-  const PRESETS_E=[{e:0,p:1.2},{e:0.6,p:1.2},{e:0.9,p:1.2},{e:1,p:1.2},{e:1.5,p:1.2}];
+  const PRESETS_E=[{e:0,p:1.2},{e:0.6,p:1.2},{e:0.75,p:1.2},{e:1,p:1.2},{e:1.5,p:1.2}];
   const PLABELS=["Cerc","Elipsă","Elipsă alungită","Parabolă","Hiperbolă"];
-  const PSUBS=["e=0","e=0.6","e=0.9","e=1","e=1.5"];
+  const PSUBS=["e=0","e=0.6","e=0.75","e=1","e=1.5"];
 
   useEffect(()=>{sRef.current.e=e;sRef.current.p=p;},[e,p]);
 
@@ -505,7 +480,7 @@ function E4() {
     const FX=W*0.38,FY=H*0.5;
     const ctx=cv.getContext("2d");const s=sRef.current;
     function draw(){
-      ctx.clearRect(0,0,W,H);ctx.fillStyle="#f8f7f3";ctx.fillRect(0,0,W,H);
+      ctx.clearRect(0,0,W,H);ctx.fillStyle=C.bg;ctx.fillRect(0,0,W,H);
       const{e:ev,p:pv}=s;
       const col=ocol(ev);
       let rRef;if(ev<1)rRef=pv/(1-ev);else if(ev===1)rRef=pv*4;else rRef=pv/(ev-1)*1.5;
@@ -566,15 +541,13 @@ function E5() {
   useEffect(()=>{sRef.current.paused=paused;},[paused]);
   function restart(){sRef.current.phase=0;sRef.current.angle=Math.PI;sRef.current.trail=[];sRef.current.totalT=0;}
 
-  function arrow(ctx,x1,y1,x2,y2,col,lbl,lside,lw=2){const dx=x2-x1,dy=y2-y1,len=Math.sqrt(dx*dx+dy*dy);if(len<3)return;ctx.save();ctx.strokeStyle=col;ctx.fillStyle=col;ctx.lineWidth=lw;ctx.beginPath();ctx.moveTo(x1,y1);ctx.lineTo(x2,y2);ctx.stroke();const ux=dx/len,uy=dy/len,hw=7,hh=3.5;ctx.beginPath();ctx.moveTo(x2,y2);ctx.lineTo(x2-hw*ux+hh*uy,y2-hw*uy-hh*ux);ctx.lineTo(x2-hw*ux-hh*uy,y2-hw*uy+hh*ux);ctx.closePath();ctx.fill();if(lbl){ctx.font="500 11px sans-serif";ctx.fillStyle=col;const nx=-uy,ny=ux,off=lside===-1?-13:13;ctx.fillText(lbl,(x1+x2)/2+nx*off-4,(y1+y2)/2+ny*off+4);}ctx.restore();}
-
   useEffect(()=>{
     const cv=cvRef.current;if(!cv)return;
     const W=cv.width,H=cv.height;const CX=W*0.42,CY=H*0.5;
     const R1_PX=55;const DT=0.012;
     const ctx=cv.getContext("2d");const s=sRef.current;
     function draw(){
-      ctx.clearRect(0,0,W,H);ctx.fillStyle="#f8f7f3";ctx.fillRect(0,0,W,H);
+      ctx.clearRect(0,0,W,H);ctx.fillStyle=C.bg;ctx.fillRect(0,0,W,H);
       const R2=s.ratio,R1=1;const at=(R1+R2)/2;
       const vc1=Math.sqrt(1/R1),vc2=Math.sqrt(1/R2);
       const vt1=Math.sqrt(2*R2/(R1*(R1+R2))),vt2=Math.sqrt(2*R1/(R2*(R1+R2)));
@@ -653,7 +626,7 @@ function E6() {
     const A_PX=105;const DT=0.022;
     const ctx=cv.getContext("2d");const s=sRef.current;
     function draw(){
-      ctx.clearRect(0,0,W,H);ctx.fillStyle="#f8f7f3";ctx.fillRect(0,0,W,H);
+      ctx.clearRect(0,0,W,H);ctx.fillStyle=C.bg;ctx.fillRect(0,0,W,H);
       const m2=1,m1=s.ratio*m2,M=m1+m2,mu=m1*m2/M;
       const f1=m2/M,f2=m1/M;
       const r1orb=f1*A_PX,r2orb=f2*A_PX;
@@ -680,7 +653,7 @@ function E6() {
       ctx.fillText(`r₂/a = ${f2.toFixed(3)}  (m₁/M)`,W-155,36);
       ctx.fillText(`μ/M  = ${(mu/M).toFixed(3)}`,W-155,50);
       ctx.restore();
-      ctx.save();ctx.font="11px sans-serif";ctx.fillStyle="rgba(60,60,55,0.38)";ctx.fillText("μ = m₁m₂/(m₁+m₂)   T² = 4π²a³/G(m₁+m₂)",10,H-10);ctx.restore();
+      ctx.save();ctx.font="11px sans-serif";ctx.fillStyle="rgba(60,60,55,0.38)";ctx.fillText("μ·r̈ = F(r)  →  μ orbits m₂ in frame relativ   T² = 4π²a³/G(m₁+m₂)",10,H-10);ctx.restore();
       if(!s.paused){s.angle+=DT;if(s.angle>Math.PI*2)s.angle-=Math.PI*2;rafRef.current=requestAnimationFrame(draw);fu(n=>n+1);}
     }
     rafRef.current=requestAnimationFrame(draw);
@@ -703,7 +676,7 @@ function E6() {
       </div>
       <div style={{display:"flex",flexWrap:"wrap",gap:6,marginTop:6}}>
         <Badge color={C.blue}>m₁</Badge><Badge color={C.red}>m₂</Badge>
-        <Badge color={C.amber}>CM</Badge><Badge color={C.green}>orbita relativă μ</Badge>
+        <Badge color={C.amber}>CM</Badge><Badge color={C.green}>r = r₁ − r₂ (coord. relativă)</Badge>
       </div>
     </div>
   );
