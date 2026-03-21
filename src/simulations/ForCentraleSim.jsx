@@ -318,7 +318,6 @@ function E2() {
       const UL=48;
       arrow(ctx,px,py,px+rc_x*UL,py+rc_y*UL,C.blue,"r̂",1,2);
       arrow(ctx,px,py,px+tc_x*UL,py+tc_y*UL,C.purple,"θ̂",-1,2);
-      const vth_phys=r_phys*dtheta;
       const S=V_SCALE.current;
       const vr_cx=rc_x*rdot*S,vr_cy=rc_y*rdot*S;
       const vth_cx=tc_x*vth_phys*S,vth_cy=tc_y*vth_phys*S;
